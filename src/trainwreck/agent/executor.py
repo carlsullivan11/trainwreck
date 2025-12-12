@@ -90,7 +90,7 @@ class Executor:
             elif git_cmd == "add":
                 output = self.git.add(args if args else ".")
             elif git_cmd == "commit":
-                message = " ").join(args).strip('"').strip("'")
+                message = " ".join(args).strip('"').strip("'")
                 output = self.git.commit(message)
             elif git_cmd == "push":
                 output = self.git.push()

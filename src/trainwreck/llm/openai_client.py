@@ -28,7 +28,7 @@ class OpenAILLMClient(LLMClient):
         return response.choices[0].text.strip()
 
     def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
-        """Generate a chat completion using OpenAI's API.""""
+        """Generate a chat completion using OpenAI's API."""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,  # type: ignore

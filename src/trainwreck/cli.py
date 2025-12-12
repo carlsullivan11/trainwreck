@@ -49,7 +49,10 @@ def run(
     llm = make_llm_client(provider=provider)
     planner = Planner(llm=llm)
 
-    abacus = AbacusClient()
+    abacus: AbacusClient | None = None
+    if os.getenv("ABACUS_API_KEY"):
+        abacus = AbacusClient()
+
     mcp: MCPClient | None = None
     if mcp_server:
         mcp = MCPClient(server_command=mcp_server.split())
