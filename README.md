@@ -239,13 +239,56 @@ Set `ABACUS_API_KEY`, `ABACUS_DEPLOYMENT_ID`, and optionally `ABACUS_DEPLOYMENT_
 
 ### MCP (Model Context Protocol)
 
-TrainWreck can connect to MCP servers for extended tool capabilities. Pass `--mcp-server` with the command to start your MCP server:
+TrainWreck supports connecting to multiple MCP servers simultaneously with auto-discovery of available tools.
+
+#### Single MCP Server (CLI)
+
+Pass `--mcp-server` with the command to start your MCP server:
 
 ```bash
---mcp-server "node ./mcp-server/index.js"
+trainwreck run --goal "Your task" --mcp-server "node ./mcp-server/index.js"
 ```
 
-The `MCPClient` will communicate via stdio.
+#### Multiple MCP Servers (Config File)
+
+Create a `.trainwreck-mcp.json` file in your repository:
+
+```json
+{
+  "mcp_servers": [
+    {
+      "name": "filesystem",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/path/to/files"],
+      "enabled": true
+    },
+    {
+      "name": "github",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+      "enabled": true
+    },
+    {
+      "name": "postgres",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
+      "enabled": false
+    }
+  ]
+}
+```
+
+TrainWreck will automatically:
+- Connect to all enabled MCP servers
+- Discover available tools from each server
+- Display tools at startup
+- Route tool calls to the correct server
+- Include available tools in the LLM planning context
+
+You can also specify a custom config path:
+
+```bash
+trainwreck run --goal "Your task" --mcp-config /path/to/config.json
+```
+
+See `.trainwreck-mcp.json.example` for a complete configuration example.
 
 ---
 
@@ -263,6 +306,7 @@ Contributions welcome! Please open an issue or PR.
 
 ## Roadmap
 
+- [x] Multiple MCP servers with auto-discovery
 - [ ] Add more tool adapters (Docker, Kubernetes, etc.)
 - [ ] Web UI for monitoring feedback loops
 - [ ] Plugin system for custom tools

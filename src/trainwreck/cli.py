@@ -32,12 +32,18 @@ def cli() -> None:
     default=None,
     help="MCP server command, e.g. 'node ./mcp-server/index.js'.",
 )
+@click.option(
+    "--mcp-config",
+    default=None,
+    help="Path to MCP configuration file (default: .trainwreck-mcp.json in repo).",
+)
 def run(
     goal: str,
     model: Optional[str],
     repo: str,
     max_iters: int,
     mcp_server: Optional[str],
+    mcp_config: Optional[str],
 ) -> None:
     """Run the TrainWreck agent on a given goal."""
     repo_path = Path(repo).resolve()
@@ -47,15 +53,29 @@ def run(
     provider = model or os.getenv("MODEL_PROVIDER", "ollama")
 
     llm = make_llm_client(provider=provider)
-    planner = Planner(llm=llm)
 
     abacus: AbacusClient | None = None
     if os.getenv("ABACUS_API_KEY"):
         abacus = AbacusClient()
 
     mcp: MCPClient | None = None
+
     if mcp_server:
         mcp = MCPClient(server_command=mcp_server.split())
+    else:
+        mcp = MCPClient()
+
+        config_path = Path(mcp_config) if mcp_config else repo_path / ".trainwreck-mcp.json"
+        if config_path.exists():
+            click.echo(f"📡 Loading MCP servers from {config_path}")
+            mcp.load_config(config_path)
+
+    if mcp and mcp.servers:
+        click.echo(f"🔧 Connected to {len(mcp.servers)} MCP server(s)")
+        tools_summary = mcp.get_tools_summary()
+        click.echo(f"📋 Available MCP tools:{tools_summary}\n")
+
+    planner = Planner(llm=llm, mcp_client=mcp)
 
     executor = Executor(
         repo_path=repo_path,
@@ -64,7 +84,6 @@ def run(
     )
     reflector = Reflector()
 
-    # Persist history in a local SQLite DB inside the repo
     memory_db_path = repo_path / ".trainwreck.db"
     memory = SQLiteMemoryStore(memory_db_path)
 

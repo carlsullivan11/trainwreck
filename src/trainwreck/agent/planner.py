@@ -10,8 +10,9 @@ from trainwreck.llm.base import LLMClient
 class Planner:
     """Plans the next development step based on goal and context."""
 
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(self, llm: LLMClient, mcp_client: Any = None) -> None:
         self.llm = llm
+        self.mcp_client = mcp_client
 
     def plan(self, goal: str, context: dict[str, Any]) -> StepPlan:
         """Generate a step plan for the given goal and context."""
@@ -34,6 +35,17 @@ class Planner:
         history = context.get("history", [])
         history_str = "\n".join([f"- {h['description']}: {h['outcome']}" for h in history[-5:]])
 
+        mcp_tools_section = ""
+        if self.mcp_client and self.mcp_client.servers:
+            tools = self.mcp_client.list_tools()
+            if tools:
+                mcp_tools_section = "\n\nAvailable MCP Tools:\n"
+                for tool in tools:
+                    tool_name = tool.get("name", "unknown")
+                    description = tool.get("description", "")
+                    server = tool.get("mcp_server", "")
+                    mcp_tools_section += f"- {tool_name} ({server}): {description}\n"
+
         return f"""
 Goal: {goal}
 
@@ -41,7 +53,7 @@ Repository State:
 {repo_state}
 
 Recent History:
-{history_str}
+{history_str}{mcp_tools_section}
 
 Plan the next step to achieve the goal. Respond with a JSON object:
 {{
@@ -50,7 +62,7 @@ Plan the next step to achieve the goal. Respond with a JSON object:
   "command": "command to run (if applicable)",
   "file_path": "path to file (if applicable)",
   "content": "file content (if applicable)",
-  "tool_name": "MCP tool name (if applicable)",
+  "tool_name": "MCP tool name (if action is mcp)",
   "arguments": {{"key": "value"}} (if applicable)
 }}
 """
@@ -58,7 +70,6 @@ Plan the next step to achieve the goal. Respond with a JSON object:
     def _parse_plan(self, response: str) -> StepPlan:
         """Parse the LLM response into a StepPlan."""
         try:
-            # Extract JSON from response (handle markdown code blocks)
             response = response.strip()
             if response.startswith("```"):
                 lines = response.split("\n")
@@ -66,7 +77,6 @@ Plan the next step to achieve the goal. Respond with a JSON object:
             data = json.loads(response)
             return StepPlan(**data)
         except (json.JSONDecodeError, TypeError):
-            # Fallback: create a simple bash step
             return StepPlan(
                 action="bash",
                 description="Parse error, listing files",
